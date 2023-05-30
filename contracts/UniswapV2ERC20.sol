@@ -3,11 +3,15 @@ pragma solidity =0.5.16;
 import "./interfaces/IUniswapV2ERC20.sol";
 import "./libraries/SafeMath.sol";
 
+/**
+ * @title Uniswap V2 LP token ERC20
+ * @dev Uniswap V2's LP tokenのコントラクト
+ */
 contract UniswapV2ERC20 is IUniswapV2ERC20 {
     using SafeMath for uint256;
-    //token名称
+    //token name
     string public constant name = "Uniswap V2";
-    //token缩写
+    //token symbol
     string public constant symbol = "UNI-V2";
     //token精度
     uint8 public constant decimals = 18;
