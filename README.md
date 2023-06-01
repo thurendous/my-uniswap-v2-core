@@ -26,7 +26,7 @@ graph TD;
 ```
 
 
-## トレード(Trade)
+## スワップ(Swap)
 
 ```mermaid
 graph TD;

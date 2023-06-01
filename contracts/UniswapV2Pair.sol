@@ -348,6 +348,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 { // permitメソッド
      * @dev スワップ関数、手数料の計算が含まれていないが、チェックはされている
      * @notice この関数はチェックを実施したコントラクトから呼ばれるべき。Routerから呼ばれる
      */
+     // 初めてスワップ関数だけを読むとちんぷんかんぷんになるので、Routerコントラクトを通して理解したほうが良い
     // this low-level function should be called from a contract which performs important safety checks
     function swap(
         uint256 amount0Out,
@@ -391,31 +392,32 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 { // permitメソッド
                     amount1Out,
                     data
                 );
-            //`balance0,1` = コントラクトにある`token0,1`のバランス
+            //`balance0,1` = 現時点コントラクトにある`token0,1`のバランス
             balance0 = IERC20(_token0).balanceOf(address(this));
             balance1 = IERC20(_token1).balanceOf(address(this));
         }
-        //如果 余额0 > 储备0 - amount0Out 则 amount0In = 余额0 - (储备0 - amount0Out) 否则 amount0In = 0
+        // もし balance0 > reserve0 - amount0Out だと amount0In = balance0 - (reserve0 - amount0Out)、それ以外の場合、 amount0In = 0
         uint256 amount0In = (balance0 > _reserve0 - amount0Out)
             ? balance0 - (_reserve0 - amount0Out)
             : 0;
-        //如果 余额1 > 储备1 - amount1Out 则 amount1In = 余额1 - (储备1 - amount1Out) 否则 amount1In = 0
+        // もし balance1 > reserve1 - amount1Out だと amount1In = balance1 - (reserve1 - amount1Out)、それ以外の場合、 amount1In = 0
         uint256 amount1In = (balance1 > _reserve1 - amount1Out)
             ? balance1 - (_reserve1 - amount1Out)
             : 0;
-        // 引数がゼロより大きいことを確認
+        // 上記の計算ではどちらかが0より大きい場合
         require(
             amount0In > 0 || amount1In > 0,
             "UniswapV2: INSUFFICIENT_INPUT_AMOUNT"
         );
         {
-            //标记reserve{0,1}的作用域，避免堆栈太深的错误
             // scope for reserve{0,1}Adjusted, avoids stack too deep errors
-            //调整后的余额0 = 余额0 * 1000 - (amount0In * 3)
+            // 調整残高0 = balance0 * 1000 - (amount0In * 3)
             uint256 balance0Adjusted = balance0.mul(1000).sub(amount0In.mul(3));
-            //调整后的余额1 = 余额1 * 1000 - (amount1In * 3)
+            // 調整残高1 = balance1 * 1000 - (amount1In * 3)
             uint256 balance1Adjusted = balance1.mul(1000).sub(amount1In.mul(3));
-            //确认balance0Adjusted * balance1Adjusted >= 储备0 * 储备1 * 1000000
+            // balance0Adjusted * balance1Adjusted >= reserve0 * reserve1 * 1000^2 を満たすことを確認
+            // 1000^2は上記の1000を乗じていることを考慮したもの
+            // このチェックできちんと手数料0.3%をもらったことを確認している
             require(
                 balance0Adjusted.mul(balance1Adjusted) >=
                     uint256(_reserve0).mul(_reserve1).mul(1000**2),
@@ -423,15 +425,15 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 { // permitメソッド
             );
         }
 
-        //更新储备量
+        // リザーブを更新する
         _update(balance0, balance1, _reserve0, _reserve1);
-        //触发交换事件
+        // Swapイベントを発火する
         emit Swap(msg.sender, amount0In, amount1In, amount0Out, amount1Out, to);
     }
 
     /**
-     * @param to to地址
-     * @dev 强制平衡以匹配储备
+     * @param to toアドレス
+     * @dev 強制的にバランスを一致させる関数
      */
     // force balances to match reserves
     function skim(address to) external lock {
@@ -451,7 +453,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20 { // permitメソッド
     }
 
     /**
-     * @dev 强制准备金与余额匹配
+     * @dev 強制的にリザーブをバランスと一致させる関数（update関数はリザーブにバランスを代入する）
      */
     // force reserves to match balances
     function sync() external lock {
